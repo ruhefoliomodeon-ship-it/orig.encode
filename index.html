@@ -1,196 +1,24 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-
-<title>
-SLSU - ITSSO Certificate of Manuscript Originality Registry
-</title>
-
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
-<style>
-
-*{
-    box-sizing:border-box;
-}
-
-body{
-    margin:0;
-    background:#f1f3f5;
-    font-family:Arial, Helvetica, sans-serif;
-}
-
-.app-panel{
-    width:95%;
-    max-width:1400px;
-    margin:20px auto;
-    background:#fff;
-    padding:20px;
-    border-radius:12px;
-    box-shadow:0 5px 20px rgba(0,0,0,0.08);
-}
-
-h1{
-    margin-top:0;
-}
-
-.controls{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-    gap:10px;
-    margin-bottom:15px;
-}
-
-input{
-    width:100%;
-    padding:12px;
-    border:1px solid #ccc;
-    border-radius:8px;
-}
-
-button{
-    border:none;
-    padding:12px 16px;
-    border-radius:8px;
-    cursor:pointer;
-    font-weight:bold;
-    background:#114f20;
-    color:#fff;
-}
-
-button.secondary{
-    background:#4b5563;
-}
-
-button.danger{
-    background:#b91c1c;
-}
-
-button.generate{
-    background:#0b4b8f;
-}
-
-.table-wrap{
-    overflow:auto;
-    margin-top:20px;
-}
-
-table{
-    width:100%;
-    border-collapse:collapse;
-}
-
-th,td{
-    border:1px solid #ddd;
-    padding:10px;
-}
-
-th{
-    background:#f3f4f6;
-}
-
-.action-buttons{
-    display:flex;
-    gap:6px;
-    flex-wrap:wrap;
-}
-
-#certificateWrap{
-    display:none;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<div class="app-panel">
-
-    <h1>
-        SLSU - ITSSO Certificate of Manuscript Originality Registry
-    </h1>
-
-    <p>
-        Encode manuscript records and generate certificates automatically.
-    </p>
-
-    <div class="controls">
-
-        <input id="oidInput" type="text" placeholder="OID">
-
-        <input id="titleInput" type="text" placeholder="Title">
-
-        <input id="authorsInput" type="text" placeholder="Authors">
-
-        <input id="unitInput" type="text" placeholder="Unit">
-
-        <input id="similarityInput" type="number" placeholder="Similarity %">
-
-    </div>
-
-    <div style="display:flex; gap:10px; flex-wrap:wrap;">
-
-        <button id="saveBtn">
-            Save Record
-        </button>
-
-        <button id="exportBtn" class="secondary">
-            Export CSV
-        </button>
-
-        <button id="showHiddenBtn" class="secondary">
-            Show Hidden Records
-        </button>
-
-    </div>
-
-    <input
-        id="searchInput"
-        type="text"
-        placeholder="Search records..."
-        style="margin-top:20px;"
-    >
-
-    <div class="table-wrap">
-
-        <table>
-
-            <thead>
-
-                <tr>
-
-                    <th>OID</th>
-                    <th>Title</th>
-                    <th>Authors</th>
-                    <th>Unit</th>
-                    <th>Similarity</th>
-                    <th>Actions</th>
-
-                </tr>
-
-            </thead>
-
-            <tbody id="recordsTable"></tbody>
-
-        </table>
-
-    </div>
-
-</div>
-
 <script>
 
 let records = [];
+let currentCertificateIndex = null;
 let editingIndex = -1;
 
-function saveToLocal(){
+loadRecords();
+
+function loadRecords(){
+
+    const saved = localStorage.getItem("slsu_records");
+
+    if(saved){
+
+        records = JSON.parse(saved);
+    }
+
+    renderTable();
+}
+
+function saveRecords(){
 
     localStorage.setItem(
         "slsu_records",
@@ -198,36 +26,26 @@ function saveToLocal(){
     );
 }
 
-function loadLocal(){
-
-    const stored = localStorage.getItem("slsu_records");
-
-    if(stored){
-
-        records = JSON.parse(stored);
-    }
-
-    renderTable();
-}
-
 function clearInputs(){
 
-    document.getElementById("oidInput").value = "";
-    document.getElementById("titleInput").value = "";
-    document.getElementById("authorsInput").value = "";
-    document.getElementById("unitInput").value = "";
-    document.getElementById("similarityInput").value = "";
+    $("#oidInput").val("");
+    $("#titleInput").val("");
+    $("#authorsInput").val("");
+    $("#unitInput").val("");
+    $("#similarityInput").val("");
 
     editingIndex = -1;
+
+    $("#saveBtn").text("Save Record");
 }
 
-function renderTable(filtered = null){
+function renderTable(filteredData = null){
 
-    const tbody = document.getElementById("recordsTable");
+    const tbody = $("#recordsTable");
 
-    tbody.innerHTML = "";
+    tbody.html("");
 
-    const data = filtered || records;
+    const data = filteredData || records;
 
     data.forEach((record,index)=>{
 
@@ -235,7 +53,7 @@ function renderTable(filtered = null){
             return;
         }
 
-        tbody.innerHTML += `
+        tbody.append(`
 
             <tr>
 
@@ -244,8 +62,6 @@ function renderTable(filtered = null){
                 <td>${record.title}</td>
 
                 <td>${record.authors}</td>
-
-                <td>${record.unit}</td>
 
                 <td>${record.similarity}%</td>
 
@@ -261,7 +77,7 @@ function renderTable(filtered = null){
                             Delete
                         </button>
 
-                        <button class="secondary" onclick="toggleHide(${index})">
+                        <button class="secondary" onclick="hideRecord(${index})">
                             Hide
                         </button>
 
@@ -275,25 +91,28 @@ function renderTable(filtered = null){
 
             </tr>
 
-        `;
+        `);
+
     });
+
 }
 
-document.getElementById("saveBtn").addEventListener("click",()=>{
+$("#saveBtn").on("click",function(){
 
-    const oid = document.getElementById("oidInput").value.trim();
+    const oid = $("#oidInput").val().trim();
 
-    const title = document.getElementById("titleInput").value.trim();
+    const title = $("#titleInput").val().trim();
 
-    const authors = document.getElementById("authorsInput").value.trim();
+    const authors = $("#authorsInput").val().trim();
 
-    const unit = document.getElementById("unitInput").value.trim();
+    const unit = $("#unitInput").val().trim();
 
-    const similarity = document.getElementById("similarityInput").value.trim();
+    const similarity = $("#similarityInput").val().trim();
 
     if(!oid || !title){
 
         alert("Please complete required fields.");
+
         return;
     }
 
@@ -318,162 +137,305 @@ document.getElementById("saveBtn").addEventListener("click",()=>{
         records[editingIndex] = record;
     }
 
-    saveToLocal();
+    saveRecords();
 
     renderTable();
 
     clearInputs();
 
-    alert("Record saved successfully.");
 });
 
 function editRecord(index){
 
-    const r = records[index];
+    const record = records[index];
 
-    document.getElementById("oidInput").value = r.oid;
+    $("#oidInput").val(record.oid);
 
-    document.getElementById("titleInput").value = r.title;
+    $("#titleInput").val(record.title);
 
-    document.getElementById("authorsInput").value = r.authors;
+    $("#authorsInput").val(record.authors);
 
-    document.getElementById("unitInput").value = r.unit;
+    $("#unitInput").val(record.unit);
 
-    document.getElementById("similarityInput").value = r.similarity;
+    $("#similarityInput").val(record.similarity);
 
     editingIndex = index;
+
+    $("#saveBtn").text("Update Record");
 }
 
 function deleteRecord(index){
 
-    const confirmDelete = confirm("Delete this record?");
+    const confirmDelete = confirm(
+        "Delete this record?"
+    );
 
-    if(confirmDelete){
-
-        records.splice(index,1);
-
-        saveToLocal();
-
-        renderTable();
+    if(!confirmDelete){
+        return;
     }
+
+    records.splice(index,1);
+
+    saveRecords();
+
+    renderTable();
 }
 
-function toggleHide(index){
+function hideRecord(index){
 
     records[index].hidden = true;
 
-    saveToLocal();
+    saveRecords();
 
     renderTable();
 }
 
-document.getElementById("showHiddenBtn").addEventListener("click",()=>{
+function unhideRecord(index){
 
-    const tbody = document.getElementById("recordsTable");
+    records[index].hidden = false;
 
-    tbody.innerHTML = "";
+    saveRecords();
 
-    const hiddenRecords = records.filter(r => r.hidden);
+    renderTable();
+}
 
-    hiddenRecords.forEach((record,index)=>{
+$("#exportBtn").on("click",function(){
 
-        tbody.innerHTML += `
+    const visibleRecords = records.filter(
+        r => !r.hidden
+    );
 
-            <tr>
+    const csv = Papa.unparse(visibleRecords);
 
-                <td>${record.oid}</td>
+    const blob = new Blob(
+        [csv],
+        {type:"text/csv;charset=utf-8;"}
+    );
 
-                <td>${record.title}</td>
+    const link = document.createElement("a");
 
-                <td>${record.authors}</td>
+    link.href = URL.createObjectURL(blob);
 
-                <td>${record.unit}</td>
+    link.download = "manuscript_records.csv";
 
-                <td>${record.similarity}%</td>
-
-                <td>
-
-                    <button onclick="unhideRecord('${record.oid}')">
-                        Unhide
-                    </button>
-
-                </td>
-
-            </tr>
-
-        `;
-    });
+    link.click();
 });
 
-function unhideRecord(oid){
+$("#searchInput").on("keyup",function(){
 
-    const record = records.find(r => r.oid === oid);
-
-    if(record){
-
-        record.hidden = false;
-    }
-
-    saveToLocal();
-
-    renderTable();
-}
-
-document.getElementById("searchInput").addEventListener("input",(e)=>{
-
-    const value = e.target.value.toLowerCase();
+    const keyword = $(this)
+        .val()
+        .toLowerCase();
 
     const filtered = records.filter(r =>
 
         !r.hidden && (
 
-            r.oid.toLowerCase().includes(value) ||
+            r.oid.toLowerCase().includes(keyword) ||
 
-            r.title.toLowerCase().includes(value) ||
+            r.title.toLowerCase().includes(keyword) ||
 
-            r.authors.toLowerCase().includes(value) ||
-
-            r.unit.toLowerCase().includes(value)
+            r.authors.toLowerCase().includes(keyword)
         )
     );
 
     renderTable(filtered);
 });
 
-document.getElementById("exportBtn").addEventListener("click",()=>{
+$("body").append(`
 
-    const exportData = records.filter(r => !r.hidden);
+<div
+    id="hiddenModal"
+    style="
+        display:none;
+        position:fixed;
+        inset:0;
+        background:rgba(0,0,0,.5);
+        z-index:9999;
+        padding:40px;
+        overflow:auto;
+    "
+>
 
-    const csv = Papa.unparse(exportData);
+    <div
+        style="
+            background:#fff;
+            max-width:1000px;
+            margin:auto;
+            padding:20px;
+            border-radius:12px;
+        "
+    >
 
-    const blob = new Blob([csv],{type:"text/csv;charset=utf-8;"});
+        <h2>Hidden Records</h2>
 
-    const link = document.createElement("a");
+        <table style="width:100%; border-collapse:collapse;">
 
-    const url = URL.createObjectURL(blob);
+            <thead>
 
-    link.href = url;
+                <tr>
 
-    link.download = "records.csv";
+                    <th>OID</th>
+                    <th>Title</th>
+                    <th>Authors</th>
+                    <th>Action</th>
 
-    link.click();
+                </tr>
 
-    URL.revokeObjectURL(url);
-});
+            </thead>
+
+            <tbody id="hiddenTable"></tbody>
+
+        </table>
+
+        <br>
+
+        <button onclick="closeHiddenModal()">
+            Close
+        </button>
+
+    </div>
+
+</div>
+
+`);
+
+$(".secondary").after(`
+
+<button
+    onclick="showHiddenRecords()"
+    class="secondary"
+>
+    Hidden Records
+</button>
+
+`);
+
+function showHiddenRecords(){
+
+    const tbody = $("#hiddenTable");
+
+    tbody.html("");
+
+    records.forEach((record,index)=>{
+
+        if(record.hidden){
+
+            tbody.append(`
+
+                <tr>
+
+                    <td>${record.oid}</td>
+
+                    <td>${record.title}</td>
+
+                    <td>${record.authors}</td>
+
+                    <td>
+
+                        <button onclick="unhideRecord(${index})">
+                            Unhide
+                        </button>
+
+                    </td>
+
+                </tr>
+
+            `);
+        }
+
+    });
+
+    $("#hiddenModal").show();
+}
+
+function closeHiddenModal(){
+
+    $("#hiddenModal").hide();
+}
 
 function generateCertificate(index){
 
-    const r = records[index];
+    currentCertificateIndex = index;
 
-    alert(
-        "Certificate generation placeholder for:\n\n" +
-        r.title
+    const record = records[index];
+
+    $(".manuscript-title").text(
+        record.title
+    );
+
+    $(".submitted-line").text(
+        record.authors
+    );
+
+    $(".unit-line").text(
+        record.unit
+    );
+
+    $(".score-value").text(
+        record.similarity + "%"
+    );
+
+    $(".paper-id").text(
+        record.oid
+    );
+
+    $("#certificateWrap").show();
+
+    $("#downloadSection").show();
+
+    window.scrollTo({
+
+        top:document.body.scrollHeight,
+
+        behavior:"smooth"
+    });
+}
+
+async function downloadCurrentPDF(){
+
+    const certificate = document.getElementById(
+        "certificate"
+    );
+
+    const canvas = await html2canvas(
+        certificate,
+        {
+            scale:2,
+            useCORS:true
+        }
+    );
+
+    const imgData = canvas.toDataURL(
+        "image/png"
+    );
+
+    const { jsPDF } = window.jspdf;
+
+    const pdf = new jsPDF(
+        "p",
+        "mm",
+        "a4"
+    );
+
+    const width = 210;
+
+    const height = 297;
+
+    pdf.addImage(
+        imgData,
+        "PNG",
+        0,
+        0,
+        width,
+        height
+    );
+
+    const record = records[currentCertificateIndex];
+
+    pdf.save(
+        `${record.oid}.pdf`
     );
 }
 
-window.onload = loadLocal;
-
 </script>
-
-</body>
-</html>
